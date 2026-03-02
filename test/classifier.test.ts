@@ -66,11 +66,11 @@ describe('classifyMove', () => {
     expect(result).toBe('excellent'); // NOT "great" — position wasn't critical
   });
 
-  it('classifies "Great" only when finding a strong move in a losing position', () => {
-    // White was losing (-200cp, ~27% winPct), played a non-engine move that kept the position
-    // nearly as good as the engine's best (-190cp). Critical recovery = "great".
-    const evalBefore = makeEval(cp(-200), 'e2e4');
-    const evalAfter = makeEval(cp(-190));
+  it('classifies "Great" when recovering from losing to near-equal', () => {
+    // White was losing (-150cp, ~37% winPct), found a non-engine move that
+    // recovers to roughly equal (+10cp, ~52% winPct). Outcome changed = "great".
+    const evalBefore = makeEval(cp(-150), 'e2e4');
+    const evalAfter = makeEval(cp(10));
     const result = classifyMove(evalBefore, evalAfter, 'd2d4', 'e2e4', 'w');
     expect(result).toBe('great');
   });
@@ -83,10 +83,21 @@ describe('classifyMove', () => {
     expect(result).not.toBe('great');
   });
 
-  it('classifies "Great" for black finding a saving move when losing', () => {
-    // Black was losing (+300cp for white = bad for black), found a near-best move
+  it('does NOT classify "Great" for king escapes in deeply lost positions', () => {
+    // Black was losing (+300cp for white), played a decent move (+290cp).
+    // Still deeply lost — no outcome change, not "great".
     const evalBefore = makeEval(cp(300), 'e7e5');
     const evalAfter = makeEval(cp(290));
+    const result = classifyMove(evalBefore, evalAfter, 'd7d5', 'e7e5', 'b');
+    expect(result).not.toBe('great');
+    expect(result).toBe('excellent'); // near-zero loss, but no outcome shift
+  });
+
+  it('classifies "Great" for black recovering from losing to equal', () => {
+    // Black was losing (+150cp, black winPct ~37%), found a move recovering to
+    // near-equal (-10cp, black winPct ~52%). Genuine recovery = "great".
+    const evalBefore = makeEval(cp(150), 'e7e5');
+    const evalAfter = makeEval(cp(-10));
     const result = classifyMove(evalBefore, evalAfter, 'd7d5', 'e7e5', 'b');
     expect(result).toBe('great');
   });
@@ -158,12 +169,28 @@ describe('classifyMove', () => {
   });
 
   it('classifies "Brilliant" for sacrifice that improves position', () => {
-    // Played move is not engine top, but position improved by ≥50cp, and move involves capture on a square
-    // where the piece can be recaptured (sacrifice heuristic)
+    // Sacrifice from equal position (+0), position improves to +80cp.
+    // Not already winning, position stays good after → brilliant.
     const evalBefore = makeEval(cp(0), 'e2e4');
     const evalAfter = makeEval(cp(80));
     const result = classifyMove(evalBefore, evalAfter, 'f1c4', 'e2e4', 'w', true);
     expect(result).toBe('brilliant');
+  });
+
+  it('does NOT classify "Brilliant" when already completely winning', () => {
+    // Win% before ≥ 90% — sacrifice in a won position is not brilliant
+    const evalBefore = makeEval(cp(800), 'e2e4');
+    const evalAfter = makeEval(cp(900));
+    const result = classifyMove(evalBefore, evalAfter, 'f1c4', 'e2e4', 'w', true);
+    expect(result).not.toBe('brilliant');
+  });
+
+  it('does NOT classify "Brilliant" when position is bad after sacrifice', () => {
+    // Sacrifice from equal, but position ends up losing (winAfter < 50%)
+    const evalBefore = makeEval(cp(0), 'e2e4');
+    const evalAfter = makeEval(cp(-200));
+    const result = classifyMove(evalBefore, evalAfter, 'f1c4', 'e2e4', 'w', true);
+    expect(result).not.toBe('brilliant');
   });
 });
 

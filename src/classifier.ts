@@ -7,6 +7,41 @@ import { getBookDepth } from './openings';
 const MATE_CP = 10000; // centipawn equivalent for mate
 const EVAL_CAP = 1000; // clamp evals at ±1000cp (Lichess convention)
 
+const PIECE_VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+/**
+ * Detect whether a move puts material at risk — a necessary (but not sufficient)
+ * condition for a sacrifice. The engine eval guards in classifyMove determine
+ * whether the risk actually paid off.
+ */
+function detectMaterialRisk(fen: string, from: string, to: string): boolean {
+  try {
+    const chess = new Chess(fen);
+    const movingPiece = chess.get(from as any);
+    if (!movingPiece || movingPiece.type === 'k') return false; // king moves are never sacrifices
+
+    const move = chess.move({ from, to });
+    if (!move) return false;
+
+    // Capture where capturer is worth more than captured piece
+    if (move.captured) {
+      const capturerValue = PIECE_VALUES[movingPiece.type] ?? 0;
+      const capturedValue = PIECE_VALUES[move.captured] ?? 0;
+      if (capturerValue > capturedValue) return true;
+    }
+
+    // Non-capture (or equal/winning capture): check if destination is attacked by opponent
+    if (!move.captured) {
+      const opponentColor = movingPiece.color === 'w' ? 'b' : 'w';
+      if (chess.isAttacked(to as any, opponentColor)) return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Convert an engine score to a centipawn value from white's perspective.
  * Clamped to ±1000cp to prevent phantom losses in decided positions.
@@ -84,8 +119,13 @@ export function classifyMove(
   const cpBefore = scoreToCp(evalBefore.score);
   const cpAfter = scoreToCp(evalAfter.score);
 
-  // Brilliant: not engine top, involves sacrifice, and improves position ≥50cp
-  if (cpLoss === 0 && isSacrifice) {
+  const winBefore = color === 'w' ? cpToWinPct(cpBefore) : cpToWinPct(-cpBefore);
+  const winAfter = color === 'w' ? cpToWinPct(cpAfter) : cpToWinPct(-cpAfter);
+
+  // Brilliant: sacrifice that works — not already winning, and position stays good.
+  // Matches Chess.com: "a good piece sacrifice" where you weren't already completely
+  // winning, and the sacrifice doesn't leave you in a bad position.
+  if (cpLoss === 0 && isSacrifice && winBefore < 90 && winAfter >= 50) {
     const sign = color === 'w' ? 1 : -1;
     const improvement = sign * (cpAfter - cpBefore);
     if (improvement >= 50) return 'brilliant';
@@ -96,12 +136,11 @@ export function classifyMove(
   const isFlat = Math.abs(cpBefore) <= 25 && Math.abs(cpAfter) <= 25;
   if (isFlat && winPctLoss <= 1) return 'good';
 
-  // Great: not engine top, but found a strong move in a losing/critical position.
-  // Matches Chess.com: "moves critical to the outcome — going from losing to equal,
-  // or finding the only good move in a difficult position."
-  if (winPctLoss <= 2) {
-    const winBefore = color === 'w' ? cpToWinPct(cpBefore) : cpToWinPct(-cpBefore);
-    if (winBefore <= 40) return 'great'; // found a near-best move when losing
+  // Great: found a near-best move in a losing position that actually changes the
+  // outcome — recovering from losing to roughly equal. A king escape from -8.0 to
+  // -7.8 doesn't count; going from -2.0 to near-equal does.
+  if (winPctLoss <= 2 && winBefore <= 40 && winAfter >= 45) {
+    return 'great';
   }
 
   // Win-percentage thresholds (aligned with Chess.com expected points model)
@@ -167,7 +206,8 @@ export async function evaluateGame(
 
     const playedMoveUci = move.from + move.to;
     const cpLoss = computeCpLoss(evalBefore.score, evalAfter.score, move.color);
-    const classification = classifyMove(evalBefore, evalAfter, playedMoveUci, evalBefore.bestMove, move.color);
+    const isSacrifice = detectMaterialRisk(move.fenBefore, move.from, move.to);
+    const classification = classifyMove(evalBefore, evalAfter, playedMoveUci, evalBefore.bestMove, move.color, isSacrifice);
 
     // For non-good moves, provide the engine's suggestion in SAN
     let engineSuggestionSan: string | undefined;
@@ -246,7 +286,8 @@ export async function evaluateGameParallel(
 
     const playedMoveUci = move.from + move.to;
     const cpLoss = computeCpLoss(evalBefore.score, evalAfter.score, move.color);
-    const classification = classifyMove(evalBefore, evalAfter, playedMoveUci, evalBefore.bestMove, move.color);
+    const isSacrifice = detectMaterialRisk(move.fenBefore, move.from, move.to);
+    const classification = classifyMove(evalBefore, evalAfter, playedMoveUci, evalBefore.bestMove, move.color, isSacrifice);
 
     let engineSuggestionSan: string | undefined;
     if (['inaccuracy', 'mistake', 'blunder'].includes(classification)) {
