@@ -3,10 +3,10 @@ import 'cm-chessboard/assets/extensions/arrows/arrows.css';
 import './style.css';
 
 import { GameManager } from './game-manager';
-import { Engine } from './engine';
+import { EnginePool } from './engine-pool';
 import { BoardController } from './board-controller';
 import { EvalStore } from './eval-store';
-import { evaluateGame } from './classifier';
+import { evaluateGameParallel } from './classifier';
 import { identifyOpening } from './openings';
 import { bus, state } from './state';
 import { createLayout } from './ui/layout';
@@ -18,7 +18,7 @@ import { initHistoryPanel } from './ui/history-panel';
 import { initEvalOverlay } from './ui/eval-overlay';
 
 const gm = new GameManager();
-const engine = new Engine();
+const pool = new EnginePool();
 const store = new EvalStore();
 let boardCtrl: BoardController | null = null;
 
@@ -271,18 +271,19 @@ async function runEvaluation(): Promise<void> {
   bus.emit('eval:started');
 
   try {
-    if (!engine.isReady) {
+    if (!pool.isReady) {
       state.evalProgress = -1; // signal "loading engine"
       bus.emit('eval:progress');
-      await engine.init();
+      await pool.init();
     }
 
     state.evalProgress = 0;
     bus.emit('eval:progress');
 
-    const evals = await evaluateGame(
-      (fen) => engine.evaluate(fen, { depth: 20 }),
+    const evals = await evaluateGameParallel(
+      pool,
       state.game.moves,
+      { depth: 20 },
       (current, total) => {
         state.evalProgress = current / total;
         bus.emit('eval:progress');

@@ -1,5 +1,7 @@
 import { Chess } from 'chess.js';
 import type { EngineEval, EngineScore, MoveClassification, MoveEvaluation, PieceColor } from './types';
+import type { EnginePool } from './engine-pool';
+import type { EvaluateOptions } from './engine';
 import { getBookDepth } from './openings';
 
 const MATE_CP = 10000; // centipawn equivalent for mate
@@ -185,6 +187,82 @@ export async function evaluateGame(
     });
 
     onProgress?.(i + 1, moves.length);
+  }
+
+  return evaluations;
+}
+
+/**
+ * Evaluate all moves in a game using parallel engine workers.
+ *
+ * Strategy:
+ * 1. Collect all unique FENs that need evaluation (skip book moves, deduplicate).
+ *    Note: move[i].fenAfter === move[i+1].fenBefore, so deduplication preserves the cache optimization.
+ * 2. Fire all evaluations in parallel via the pool.
+ * 3. Once all results are back, classify moves sequentially (classification is synchronous).
+ */
+export async function evaluateGameParallel(
+  pool: EnginePool,
+  moves: Array<{ fenBefore: string; fenAfter: string; san: string; from: string; to: string; color: PieceColor }>,
+  options?: EvaluateOptions,
+  onProgress?: (current: number, total: number) => void
+): Promise<MoveEvaluation[]> {
+  const sanMoves = moves.map((m) => m.san);
+  const bookDepth = getBookDepth(sanMoves);
+
+  // Collect unique FENs that need evaluation
+  const fenSet = new Set<string>();
+  for (let i = bookDepth; i < moves.length; i++) {
+    fenSet.add(moves[i].fenBefore);
+    fenSet.add(moves[i].fenAfter);
+  }
+
+  const uniqueFens = Array.from(fenSet);
+
+  // Evaluate all positions in parallel
+  const evalMap = await pool.evaluateAll(uniqueFens, options, onProgress);
+
+  // Classify moves sequentially using the precomputed evaluations
+  const evaluations: MoveEvaluation[] = [];
+
+  for (let i = 0; i < moves.length; i++) {
+    const move = moves[i];
+
+    if (i < bookDepth) {
+      evaluations.push({
+        moveIndex: i,
+        san: move.san,
+        color: move.color,
+        evalBefore: null,
+        evalAfter: null,
+        classification: 'book',
+        cpLoss: 0,
+      });
+      continue;
+    }
+
+    const evalBefore = evalMap.get(move.fenBefore)!;
+    const evalAfter = evalMap.get(move.fenAfter)!;
+
+    const playedMoveUci = move.from + move.to;
+    const cpLoss = computeCpLoss(evalBefore.score, evalAfter.score, move.color);
+    const classification = classifyMove(evalBefore, evalAfter, playedMoveUci, evalBefore.bestMove, move.color);
+
+    let engineSuggestionSan: string | undefined;
+    if (['inaccuracy', 'mistake', 'blunder'].includes(classification)) {
+      engineSuggestionSan = uciToSan(move.fenBefore, evalBefore.bestMove) ?? undefined;
+    }
+
+    evaluations.push({
+      moveIndex: i,
+      san: move.san,
+      color: move.color,
+      evalBefore,
+      evalAfter,
+      classification,
+      cpLoss,
+      engineSuggestionSan,
+    });
   }
 
   return evaluations;

@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { classifyMove, computeCpLoss, cpToWinPct, evaluateGame, uciToSan } from '../src/classifier';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { classifyMove, computeCpLoss, cpToWinPct, evaluateGame, evaluateGameParallel, uciToSan } from '../src/classifier';
+import { EnginePool } from '../src/engine-pool';
 import type { EngineEval, EngineScore, PieceColor } from '../src/types';
 
 function makeEval(score: EngineScore, bestMove = 'e2e4'): EngineEval {
@@ -397,5 +398,169 @@ describe('evaluateGame — book moves', () => {
     // Third is a blunder with engine suggestion
     expect(evals[2].classification).toBe('blunder');
     expect(evals[2].engineSuggestionSan).toBe('Nf3'); // UCI g1f3 → SAN Nf3
+  });
+});
+
+// --- evaluateGameParallel tests ---
+
+// Mock Worker that returns FEN-dependent evals for parallel tests
+class MockWorker {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  private handlers: Array<(msg: string) => void> = [];
+  private currentFen = '';
+
+  addEventListener(event: string, handler: (e: MessageEvent) => void) {
+    if (event === 'message') {
+      this.handlers.push((msg) => handler(new MessageEvent('message', { data: msg })));
+    }
+  }
+
+  removeEventListener() {}
+
+  postMessage(msg: string) {
+    setTimeout(() => this.handleCommand(msg), 0);
+  }
+
+  terminate() {}
+
+  private reply(msg: string) {
+    for (const handler of this.handlers) handler(msg);
+    if (this.onmessage) this.onmessage(new MessageEvent('message', { data: msg }));
+  }
+
+  private handleCommand(cmd: string) {
+    if (cmd === 'uci') {
+      this.reply('id name Stockfish 16');
+      this.reply('uciok');
+    } else if (cmd === 'isready') {
+      this.reply('readyok');
+    } else if (cmd.startsWith('position fen ')) {
+      this.currentFen = cmd.slice('position fen '.length);
+    } else if (cmd.startsWith('go')) {
+      // Return different scores based on FEN content for testability
+      const cpValue = this.currentFen.includes('4K3') ? 0 : 30;
+      this.reply(`info depth 20 score cp ${cpValue} pv a1a2`);
+      this.reply('bestmove a1a2');
+    } else if (cmd === 'stop') {
+      this.reply('bestmove a1a2');
+    }
+  }
+}
+
+describe('evaluateGameParallel', () => {
+  let pool: EnginePool;
+
+  beforeEach(() => {
+    vi.stubGlobal('Worker', vi.fn(() => new MockWorker()));
+  });
+
+  afterEach(() => {
+    pool?.destroy();
+    vi.unstubAllGlobals();
+  });
+
+  // Non-book moves used across tests
+  const midGameMoves = [
+    { index: 0, san: 'Kf2', from: 'e1', to: 'f2', color: 'w' as PieceColor,
+      fenBefore: '4k3/8/8/8/8/8/8/4K3 w - - 0 40',
+      fenAfter: '4k3/8/8/8/8/8/5K2/8 b - - 1 40' },
+    { index: 1, san: 'Kd7', from: 'e8', to: 'd7', color: 'b' as PieceColor,
+      fenBefore: '4k3/8/8/8/8/8/5K2/8 b - - 1 40',
+      fenAfter: '8/3k4/8/8/8/8/5K2/8 w - - 2 41' },
+    { index: 2, san: 'Ke3', from: 'f2', to: 'e3', color: 'w' as PieceColor,
+      fenBefore: '8/3k4/8/8/8/8/5K2/8 w - - 2 41',
+      fenAfter: '8/3k4/8/8/8/4K3/8/8 b - - 3 41' },
+  ];
+
+  it('evaluates all positions and classifies moves', async () => {
+    pool = new EnginePool('/stockfish/stockfish.js', 2);
+    await pool.init();
+
+    const evals = await evaluateGameParallel(pool, midGameMoves);
+
+    expect(evals.length).toBe(3);
+    for (const ev of evals) {
+      expect(ev.evalBefore).not.toBeNull();
+      expect(ev.evalAfter).not.toBeNull();
+      expect(ev.classification).not.toBe('book');
+    }
+  });
+
+  it('deduplicates FENs — fenAfter[i] === fenBefore[i+1]', async () => {
+    pool = new EnginePool('/stockfish/stockfish.js', 2);
+    await pool.init();
+
+    // Count unique FENs: 3 fenBefore + 3 fenAfter, but fenAfter[0]=fenBefore[1] and fenAfter[1]=fenBefore[2]
+    // So unique = fenBefore[0], fenAfter[0]=fenBefore[1], fenAfter[1]=fenBefore[2], fenAfter[2] = 4
+    const evals = await evaluateGameParallel(pool, midGameMoves);
+    expect(evals.length).toBe(3);
+    // The key property: evalAfter of move 0 should have the same score as evalBefore of move 1
+    // because they come from the same FEN (only evaluated once)
+    expect(evals[0].evalAfter!.score.value).toBe(evals[1].evalBefore!.score.value);
+    expect(evals[1].evalAfter!.score.value).toBe(evals[2].evalBefore!.score.value);
+  });
+
+  it('marks book moves with null evals', async () => {
+    pool = new EnginePool('/stockfish/stockfish.js', 2);
+    await pool.init();
+
+    const bookMoves = [
+      { index: 0, san: 'e4', from: 'e2', to: 'e4', color: 'w' as PieceColor,
+        fenBefore: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        fenAfter: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1' },
+      { index: 1, san: 'e5', from: 'e7', to: 'e5', color: 'b' as PieceColor,
+        fenBefore: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+        fenAfter: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' },
+    ];
+
+    const evals = await evaluateGameParallel(pool, bookMoves);
+    const bookEvals = evals.filter((e) => e.classification === 'book');
+    expect(bookEvals.length).toBeGreaterThanOrEqual(2);
+    for (const be of bookEvals) {
+      expect(be.evalBefore).toBeNull();
+      expect(be.evalAfter).toBeNull();
+      expect(be.cpLoss).toBe(0);
+    }
+  });
+
+  it('reports progress as positions are evaluated', async () => {
+    pool = new EnginePool('/stockfish/stockfish.js', 2);
+    await pool.init();
+
+    const progressCalls: Array<[number, number]> = [];
+    await evaluateGameParallel(pool, midGameMoves, undefined, (current, total) => {
+      progressCalls.push([current, total]);
+    });
+
+    expect(progressCalls.length).toBeGreaterThan(0);
+    // Final progress should be total/total
+    const last = progressCalls[progressCalls.length - 1];
+    expect(last[0]).toBe(last[1]);
+  });
+
+  it('produces same classifications as sequential evaluateGame for identical inputs', async () => {
+    pool = new EnginePool('/stockfish/stockfish.js', 1);
+    await pool.init();
+
+    // Use the sequential evaluateGame with a mock that returns the same as the MockWorker
+    const evalFn = async (fen: string): Promise<EngineEval> => {
+      const cpValue = fen.includes('4K3') ? 0 : 30;
+      const isBlack = fen.split(' ')[1] === 'b';
+      return {
+        score: { type: 'cp', value: isBlack ? -cpValue : cpValue },
+        bestMove: 'a1a2',
+        depth: 20,
+        pv: ['a1a2'],
+      };
+    };
+
+    const seqEvals = await evaluateGame(evalFn, midGameMoves);
+    const parEvals = await evaluateGameParallel(pool, midGameMoves);
+
+    expect(parEvals.length).toBe(seqEvals.length);
+    for (let i = 0; i < seqEvals.length; i++) {
+      expect(parEvals[i].classification).toBe(seqEvals[i].classification);
+      expect(parEvals[i].cpLoss).toBe(seqEvals[i].cpLoss);
+    }
   });
 });
