@@ -15,7 +15,7 @@ export class Engine {
   private workerPath: string;
   private ready = false;
 
-  constructor(workerPath = '/stockfish/stockfish-nnue-16-single.js') {
+  constructor(workerPath = `${import.meta.env.BASE_URL}stockfish/stockfish-nnue-16-single.js`) {
     this.workerPath = workerPath;
   }
 

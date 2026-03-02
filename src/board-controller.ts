@@ -17,7 +17,7 @@ export class BoardController {
       position: FEN.start,
       orientation: COLOR.white,
       responsive: true,
-      assetsUrl: '/assets/',
+      assetsUrl: `${import.meta.env.BASE_URL}assets/`,
       style: {
         cssClass: 'default',
         showCoordinates: true,
