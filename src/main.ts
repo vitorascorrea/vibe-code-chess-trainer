@@ -16,6 +16,9 @@ import { initNavControls } from './ui/nav-controls';
 import { initMoveList } from './ui/move-list';
 import { initHistoryPanel } from './ui/history-panel';
 import { initEvalOverlay } from './ui/eval-overlay';
+import { generateInsights } from './trainer';
+import { initTrainerChat, setTrainerMessages, destroyTrainerChat } from './ui/trainer-chat';
+import { registerMcpTools, unregisterMcpTools, setNavigateCallback } from './mcp-tools';
 
 const gm = new GameManager();
 const engine = new Engine();
@@ -140,6 +143,8 @@ async function enterApp(afterMount: () => void): Promise<void> {
     state.currentMoveIndex = -1;
     state.mode = 'review';
     state.isEvaluating = false;
+    destroyTrainerChat();
+    unregisterMcpTools();
     showStartScreen();
   });
 
@@ -168,7 +173,16 @@ async function enterApp(afterMount: () => void): Promise<void> {
   });
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
+  initTrainerChat(ui.trainerChat);
   initHistoryPanel(ui.panelContent, loadStored);
+
+  // Register WebMCP tools and set up navigation callback
+  setNavigateCallback((moveIndex: number) => {
+    gm.goToMove(moveIndex);
+    state.currentMoveIndex = gm.currentMoveIndex;
+    bus.emit('position:changed');
+  });
+  registerMcpTools();
 
   await boardCtrl.mount(ui.boardWrap);
   setupKeyboard();
@@ -256,6 +270,12 @@ function loadStored(id: string): void {
     loadGameData(stored.pgn);
     state.evaluations = stored.evaluations;
     bus.emit('eval:complete');
+
+    // Generate trainer insights for stored game
+    if (state.game) {
+      const insights = generateInsights(stored.evaluations, state.game, state.openingName);
+      setTrainerMessages(insights);
+    }
   } catch (err) {
     console.error('Failed to load stored game:', err);
   }
@@ -292,6 +312,12 @@ async function runEvaluation(): Promise<void> {
     state.evaluations = evals;
     state.isEvaluating = false;
     bus.emit('eval:complete');
+
+    // Generate trainer insights
+    if (state.game) {
+      const insights = generateInsights(evals, state.game, state.openingName);
+      setTrainerMessages(insights);
+    }
 
     // Save to history
     const id = `${state.game.headers.white}-${state.game.headers.black}-${state.game.headers.date}-${Date.now()}`;
