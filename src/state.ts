@@ -31,4 +31,5 @@ export const state: AppState = {
   evalProgress: 0,
   boardFlipped: false,
   openingName: null,
+  freeplayEval: null,
 };

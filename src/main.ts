@@ -159,9 +159,17 @@ async function enterApp(afterMount: () => void): Promise<void> {
     onResume: () => {
       gm.resumePgn();
       state.mode = 'review';
+      state.freeplayEval = null;
       bus.emit('mode:changed');
       bus.emit('position:changed');
     },
+    onEvaluatePosition: () => evaluateFreeplayPosition(),
+  });
+
+  bus.on('position:changed', () => {
+    if (state.mode === 'freeplay') {
+      state.freeplayEval = null;
+    }
   });
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
@@ -198,6 +206,7 @@ function setupKeyboard(): void {
         if (state.mode === 'freeplay') {
           gm.resumePgn();
           state.mode = 'review';
+          state.freeplayEval = null;
           bus.emit('mode:changed');
           bus.emit('position:changed');
         }
@@ -304,6 +313,35 @@ async function runEvaluation(): Promise<void> {
     bus.emit('store:changed');
   } catch (err) {
     console.error('Evaluation failed:', err);
+    state.isEvaluating = false;
+    bus.emit('eval:complete');
+  }
+}
+
+async function evaluateFreeplayPosition(): Promise<void> {
+  if (state.mode !== 'freeplay' || state.isEvaluating) return;
+
+  state.isEvaluating = true;
+  bus.emit('eval:started');
+
+  try {
+    if (!pool.isReady) {
+      await pool.init();
+    }
+
+    const fen = gm.currentFen;
+    const results = await pool.evaluateAll([fen], { depth: 20 });
+    const ev = results.get(fen);
+
+    state.isEvaluating = false;
+
+    if (ev && state.mode === 'freeplay') {
+      state.freeplayEval = ev.score;
+      bus.emit('freeplay:eval');
+    }
+    bus.emit('eval:complete');
+  } catch (err) {
+    console.error('Freeplay evaluation failed:', err);
     state.isEvaluating = false;
     bus.emit('eval:complete');
   }

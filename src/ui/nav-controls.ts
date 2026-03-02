@@ -7,6 +7,7 @@ export interface NavCallbacks {
   onGoToEnd: () => void;
   onFreeplay: () => void;
   onResume: () => void;
+  onEvaluatePosition: () => void;
 }
 
 export function initNavControls(container: HTMLElement, cb: NavCallbacks): void {
@@ -31,6 +32,7 @@ function render(container: HTMLElement, cb: NavCallbacks): void {
   ];
 
   if (isFreeplay) {
+    btns.push(['🔍', 'Evaluate position', cb.onEvaluatePosition]);
     btns.push(['↩', 'Resume', cb.onResume, true]);
   } else {
     btns.push(['♟', 'Play', cb.onFreeplay]);

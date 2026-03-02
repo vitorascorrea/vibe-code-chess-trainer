@@ -22,6 +22,17 @@ export function initEvalBar(container: HTMLElement): void {
       return;
     }
 
+    // In freeplay, show freeplay eval if available
+    if (state.mode === 'freeplay') {
+      if (state.freeplayEval) {
+        whiteFill.style.height = `${scoreToPct(state.freeplayEval)}%`;
+      } else {
+        whiteFill.style.height = '50%';
+      }
+      badgeEl.style.display = 'none';
+      return;
+    }
+
     const moveIdx = state.currentMoveIndex;
     const ev = state.evaluations[moveIdx];
 
@@ -44,6 +55,8 @@ export function initEvalBar(container: HTMLElement): void {
   bus.on('eval:complete', update);
   bus.on('eval:started', update);
   bus.on('eval:progress', update);
+  bus.on('freeplay:eval', update);
+  bus.on('mode:changed', update);
 }
 
 function classificationSymbol(cls: MoveClassification): string {
