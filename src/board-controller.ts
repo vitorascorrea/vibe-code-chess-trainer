@@ -85,8 +85,8 @@ export class BoardController {
     const move = state.game.moves[idx];
 
     // Highlight last move squares
-    this.board.addMarker?.(MARKER_TYPE.frame, move.from);
-    this.board.addMarker?.(MARKER_TYPE.frame, move.to);
+    this.board.addMarker?.(MARKER_TYPE.square, move.from);
+    this.board.addMarker?.(MARKER_TYPE.square, move.to);
 
     // Show engine best move arrow if evaluated
     const ev = state.evaluations[idx];
