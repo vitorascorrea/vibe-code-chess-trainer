@@ -5,14 +5,11 @@ export function createLayout(): {
   boardWrap: HTMLElement;
   navControls: HTMLElement;
   moveList: HTMLElement;
-  panelContent: HTMLElement;
 } {
   const app = document.getElementById('app')!;
   app.innerHTML = '';
 
   const layout = el('div', 'app-layout');
-  const mainCol = el('div', 'main-column');
-  const sideCol = el('div', 'side-column');
 
   const backBtn = el('button', 'back-btn');
   backBtn.textContent = '\u2190 Back';
@@ -26,17 +23,12 @@ export function createLayout(): {
   boardRow.append(evalBar, boardWrap);
 
   const navControls = el('div', 'nav-controls');
-
-  mainCol.append(backBtn, gameInfo, boardRow, navControls);
-
   const moveList = el('div', 'move-list');
-  const panelContent = el('div', 'panel-content');
 
-  sideCol.append(moveList, panelContent);
-  layout.append(mainCol, sideCol);
+  layout.append(backBtn, gameInfo, boardRow, navControls, moveList);
   app.append(layout);
 
-  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList, panelContent };
+  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList };
 }
 
 function el(tag: string, className: string): HTMLElement {

@@ -14,7 +14,6 @@ import { initGameInfo } from './ui/game-info';
 import { initEvalBar } from './ui/eval-bar';
 import { initNavControls } from './ui/nav-controls';
 import { initMoveList } from './ui/move-list';
-import { initHistoryPanel } from './ui/history-panel';
 import { initEvalOverlay } from './ui/eval-overlay';
 
 const gm = new GameManager();
@@ -166,7 +165,6 @@ async function enterApp(afterMount: () => void): Promise<void> {
   });
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
-  initHistoryPanel(ui.panelContent, loadStored);
 
   await boardCtrl.mount(ui.boardWrap);
   setupKeyboard();
