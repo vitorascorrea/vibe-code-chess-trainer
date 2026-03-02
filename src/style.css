@@ -95,6 +95,11 @@ html, body {
   height: 100%;
 }
 
+/* Last-move highlight squares */
+.board-wrap .marker-square {
+  fill: rgba(255, 255, 50, 0.4);
+}
+
 /* ---- Vertical Eval Bar ---- */
 .eval-bar {
   width: 28px;
