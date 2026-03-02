@@ -76,7 +76,17 @@ function updateCurrent(container: HTMLElement): void {
     const el = container.querySelector(`.move[data-idx="${state.currentMoveIndex}"]`);
     if (el) {
       el.classList.add('current');
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // Horizontal scroll within the move list only — won't jump the page
+      const parent = container;
+      const elLeft = (el as HTMLElement).offsetLeft;
+      const elWidth = (el as HTMLElement).offsetWidth;
+      const scrollLeft = parent.scrollLeft;
+      const parentWidth = parent.clientWidth;
+      if (elLeft < scrollLeft) {
+        parent.scrollLeft = elLeft - 8;
+      } else if (elLeft + elWidth > scrollLeft + parentWidth) {
+        parent.scrollLeft = elLeft + elWidth - parentWidth + 8;
+      }
     }
   }
 }

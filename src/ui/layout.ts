@@ -5,7 +5,6 @@ export function createLayout(): {
   boardWrap: HTMLElement;
   navControls: HTMLElement;
   moveList: HTMLElement;
-  trainerChat: HTMLElement;
   panelContent: HTMLElement;
 } {
   const app = document.getElementById('app')!;
@@ -31,14 +30,13 @@ export function createLayout(): {
   mainCol.append(backBtn, gameInfo, boardRow, navControls);
 
   const moveList = el('div', 'move-list');
-  const trainerChat = el('div', 'trainer-chat');
   const panelContent = el('div', 'panel-content');
 
-  sideCol.append(moveList, trainerChat, panelContent);
+  sideCol.append(moveList, panelContent);
   layout.append(mainCol, sideCol);
   app.append(layout);
 
-  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList, trainerChat, panelContent };
+  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList, panelContent };
 }
 
 function el(tag: string, className: string): HTMLElement {

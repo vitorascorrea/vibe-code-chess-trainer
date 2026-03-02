@@ -202,37 +202,49 @@ html, body {
 .move-list {
   background: var(--bg-surface);
   border-radius: 8px;
-  padding: 10px;
-  max-height: 240px;
-  overflow-y: auto;
+  padding: 8px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
   font-size: 14px;
-  line-height: 1.8;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  scrollbar-width: thin;
+}
+
+.move-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.move-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
 }
 
 .move-list .move-pair {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  gap: 2px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .move-list .move-number {
   color: var(--text-muted);
-  min-width: 30px;
-  text-align: right;
-  padding-right: 4px;
+  padding-right: 2px;
   font-size: 12px;
 }
 
 .move-list .move {
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
-  min-width: 55px;
   text-align: center;
   transition: background 0.1s;
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  white-space: nowrap;
 }
 
 .move-list .move:hover {
@@ -542,127 +554,6 @@ html, body {
   border-radius: 3px;
   transition: width 0.2s ease;
   width: 0%;
-}
-
-/* ---- Trainer Chat ---- */
-.trainer-chat {
-  background: var(--bg-surface);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.trainer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-}
-
-.trainer-header:hover {
-  background: var(--bg-card);
-}
-
-.trainer-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.3px;
-}
-
-.trainer-toggle {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-.trainer-messages {
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: max-height 0.25s ease;
-}
-
-.trainer-messages.collapsed {
-  max-height: 0;
-  padding: 0 8px;
-  overflow: hidden;
-}
-
-.chat-placeholder {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 16px 8px;
-}
-
-.chat-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--bg);
-  border-left: 3px solid var(--border);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.chat-message.chat-cls-brilliant  { border-left-color: var(--clr-brilliant); }
-.chat-message.chat-cls-great      { border-left-color: var(--clr-great); }
-.chat-message.chat-cls-best       { border-left-color: var(--clr-best); }
-.chat-message.chat-cls-excellent   { border-left-color: var(--clr-excellent); }
-.chat-message.chat-cls-good       { border-left-color: var(--clr-good); }
-.chat-message.chat-cls-inaccuracy { border-left-color: var(--clr-inaccuracy); }
-.chat-message.chat-cls-mistake    { border-left-color: var(--clr-mistake); }
-.chat-message.chat-cls-blunder    { border-left-color: var(--clr-blunder); }
-
-.chat-message.chat-opening   { border-left-color: var(--accent); }
-.chat-message.chat-summary   { border-left-color: var(--accent); background: var(--bg-card); }
-.chat-message.chat-pattern   { border-left-color: var(--clr-inaccuracy); }
-
-.chat-avatar {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 700;
-  background: var(--border);
-  color: var(--text);
-}
-
-.chat-avatar.brilliant  { background: var(--clr-brilliant); color: #fff; }
-.chat-avatar.great      { background: var(--clr-great); color: #fff; }
-.chat-avatar.best       { background: var(--clr-best); color: #1a1a2e; }
-.chat-avatar.excellent  { background: var(--clr-excellent); color: #1a1a2e; }
-.chat-avatar.good       { background: var(--clr-good); color: #1a1a2e; }
-.chat-avatar.inaccuracy { background: var(--clr-inaccuracy); color: #1a1a2e; }
-.chat-avatar.mistake    { background: var(--clr-mistake); color: #fff; }
-.chat-avatar.blunder    { background: var(--clr-blunder); color: #fff; }
-
-.chat-text {
-  color: var(--text);
-  flex: 1;
-}
-
-/* ---- Mobile: trainer chat at top ---- */
-@media (max-width: 767px) {
-  .trainer-chat {
-    order: -1;
-  }
-
-  .trainer-messages {
-    max-height: 180px;
-  }
 }
 
 /* ---- Utility ---- */
