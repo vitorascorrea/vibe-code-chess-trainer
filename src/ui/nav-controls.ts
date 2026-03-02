@@ -5,10 +5,8 @@ export interface NavCallbacks {
   onBackward: () => void;
   onForward: () => void;
   onGoToEnd: () => void;
-  onFlip: () => void;
   onFreeplay: () => void;
   onResume: () => void;
-  onEvaluate: () => void;
 }
 
 export function initNavControls(container: HTMLElement, cb: NavCallbacks): void {
@@ -30,7 +28,6 @@ function render(container: HTMLElement, cb: NavCallbacks): void {
     ['◀', 'Back', cb.onBackward],
     ['▶', 'Forward', cb.onForward],
     ['⏭', 'End', cb.onGoToEnd],
-    ['🔄', 'Flip', cb.onFlip],
   ];
 
   if (isFreeplay) {
@@ -49,12 +46,4 @@ function render(container: HTMLElement, cb: NavCallbacks): void {
     container.append(btn);
   }
 
-  // Re-evaluate button — only shows after evaluation is complete
-  if (!isFreeplay && state.game && state.evaluations.length > 0 && !isEvaluating) {
-    const evalBtn = document.createElement('button');
-    evalBtn.className = 'btn btn-secondary evaluate-btn';
-    evalBtn.textContent = 'Re-evaluate';
-    evalBtn.addEventListener('click', cb.onEvaluate);
-    container.append(evalBtn);
-  }
 }

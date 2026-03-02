@@ -151,7 +151,6 @@ async function enterApp(afterMount: () => void): Promise<void> {
     onBackward: () => navigate(() => gm.backward()),
     onForward: () => navigate(() => gm.forward()),
     onGoToEnd: () => navigate(() => gm.goToEnd()),
-    onFlip: () => boardCtrl!.flip(),
     onFreeplay: () => {
       gm.enterFreeplay();
       state.mode = 'freeplay';
@@ -164,7 +163,6 @@ async function enterApp(afterMount: () => void): Promise<void> {
       bus.emit('mode:changed');
       bus.emit('position:changed');
     },
-    onEvaluate: () => runEvaluation(),
   });
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
