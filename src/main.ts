@@ -14,6 +14,7 @@ import { initGameInfo } from './ui/game-info';
 import { initEvalBar } from './ui/eval-bar';
 import { initNavControls } from './ui/nav-controls';
 import { initMoveList } from './ui/move-list';
+import { initFreeplayMoveList } from './ui/freeplay-move-list';
 import { initEvalOverlay } from './ui/eval-overlay';
 
 const gm = new GameManager();
@@ -92,7 +93,7 @@ function showStartScreen(): void {
       row.innerHTML = `
         <div class="info">
           <div class="players">${item.headers.white} vs ${item.headers.black}</div>
-          <div class="detail">${item.headers.result} · ${item.opening || 'Unknown'} · ${item.date}</div>
+          <div class="detail">${item.headers.result} · ${item.date}</div>
         </div>
       `;
       const delBtn = document.createElement('button');
@@ -139,6 +140,10 @@ async function enterApp(afterMount: () => void): Promise<void> {
     state.currentMoveIndex = -1;
     state.mode = 'review';
     state.isEvaluating = false;
+    state.freeplayMoves = [];
+    state.freeplayEvaluations = [];
+    state.currentFreeplayMoveIndex = -1;
+    state.freeplayEval = null;
     showStartScreen();
   });
 
@@ -154,17 +159,43 @@ async function enterApp(afterMount: () => void): Promise<void> {
       gm.enterFreeplay();
       state.mode = 'freeplay';
       state.freeplayBranchPoint = gm.freeplayBranchPoint;
+      state.freeplayMoves = [];
+      state.freeplayEvaluations = [];
+      state.currentFreeplayMoveIndex = -1;
+      state.freeplayEval = null;
       bus.emit('mode:changed');
     },
     onResume: () => {
       gm.resumePgn();
       state.mode = 'review';
+      state.freeplayEval = null;
+      state.freeplayMoves = [];
+      state.freeplayEvaluations = [];
+      state.currentFreeplayMoveIndex = -1;
       bus.emit('mode:changed');
       bus.emit('position:changed');
     },
+    onEvaluatePosition: () => evaluateFreeplayMoves(),
+    onUndo: () => undoFreeplayMove(),
   });
 
-  initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
+  bus.on('position:changed', () => {
+    if (state.mode === 'freeplay') {
+      state.freeplayEval = null;
+    }
+  });
+
+  bus.on('freeplay:moved', () => {
+    if (state.freeplayAutoEval) {
+      evaluateFreeplayMoves();
+    }
+  });
+
+  initMoveList(ui.moveList, (idx) => {
+    if (state.mode === 'freeplay') return;
+    navigate(() => gm.goToMove(idx));
+  });
+  initFreeplayMoveList(ui.freeplayMoveList);
 
   await boardCtrl.mount(ui.boardWrap);
   setupKeyboard();
@@ -179,18 +210,22 @@ function setupKeyboard(): void {
     if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
     switch (e.key) {
       case 'ArrowLeft':
+        if (state.mode === 'freeplay') break;
         e.preventDefault();
         navigate(() => gm.backward());
         break;
       case 'ArrowRight':
+        if (state.mode === 'freeplay') break;
         e.preventDefault();
         navigate(() => gm.forward());
         break;
       case 'Home':
+        if (state.mode === 'freeplay') break;
         e.preventDefault();
         navigate(() => gm.goToStart());
         break;
       case 'End':
+        if (state.mode === 'freeplay') break;
         e.preventDefault();
         navigate(() => gm.goToEnd());
         break;
@@ -198,6 +233,10 @@ function setupKeyboard(): void {
         if (state.mode === 'freeplay') {
           gm.resumePgn();
           state.mode = 'review';
+          state.freeplayEval = null;
+          state.freeplayMoves = [];
+          state.freeplayEvaluations = [];
+          state.currentFreeplayMoveIndex = -1;
           bus.emit('mode:changed');
           bus.emit('position:changed');
         }
@@ -205,6 +244,13 @@ function setupKeyboard(): void {
       case 'f':
       case 'F':
         boardCtrl?.flip();
+        break;
+      case 'z':
+      case 'Z':
+        if ((e.ctrlKey || e.metaKey) && state.mode === 'freeplay') {
+          e.preventDefault();
+          undoFreeplayMove();
+        }
         break;
     }
   });
@@ -226,10 +272,7 @@ function loadGameData(pgn: string): void {
   state.currentMoveIndex = -1;
   state.mode = 'review';
   state.evaluations = [];
-
-  const movesSan = game.moves.map((m) => m.san);
-  const opening = identifyOpening(movesSan);
-  state.openingName = opening?.name ?? null;
+  state.openingName = null;
 
   bus.emit('game:loaded');
   bus.emit('position:changed');
@@ -291,12 +334,13 @@ async function runEvaluation(): Promise<void> {
     bus.emit('eval:complete');
 
     // Save to history
+    const fullOpening = identifyOpening(state.game.moves.map(m => m.san));
     const id = `${state.game.headers.white}-${state.game.headers.black}-${state.game.headers.date}-${Date.now()}`;
     store.save({
       id,
       date: state.game.headers.date,
       headers: state.game.headers,
-      opening: state.openingName,
+      opening: fullOpening?.name ?? null,
       pgn: rebuildPgn(),
       evaluations: evals,
       createdAt: Date.now(),
@@ -304,6 +348,75 @@ async function runEvaluation(): Promise<void> {
     bus.emit('store:changed');
   } catch (err) {
     console.error('Evaluation failed:', err);
+    state.isEvaluating = false;
+    bus.emit('eval:complete');
+  }
+}
+
+function undoFreeplayMove(): void {
+  if (state.mode !== 'freeplay' || state.isEvaluating) return;
+  if (!gm.undoFreeplay()) return;
+
+  state.freeplayMoves.pop();
+  // Trim evaluations to match — can't keep evals for moves that no longer exist
+  if (state.freeplayEvaluations.length > state.freeplayMoves.length) {
+    state.freeplayEvaluations = state.freeplayEvaluations.slice(0, state.freeplayMoves.length);
+  }
+  state.currentFreeplayMoveIndex = state.freeplayMoves.length - 1;
+  bus.emit('freeplay:moved');
+  bus.emit('position:changed');
+}
+
+async function evaluateFreeplayMoves(): Promise<void> {
+  if (state.mode !== 'freeplay' || state.isEvaluating) return;
+  if (state.freeplayMoves.length === 0) return;
+
+  state.isEvaluating = true;
+  state.evalProgress = 0;
+  bus.emit('eval:started');
+
+  try {
+    if (!pool.isReady) {
+      state.evalProgress = -1;
+      bus.emit('eval:progress');
+      await pool.init();
+    }
+
+    state.evalProgress = 0;
+    bus.emit('eval:progress');
+
+    // Evaluate only moves not yet evaluated
+    const alreadyEvaluated = state.freeplayEvaluations.length;
+    const movesToEval = state.freeplayMoves.slice(alreadyEvaluated);
+
+    if (movesToEval.length === 0) {
+      state.isEvaluating = false;
+      bus.emit('eval:complete');
+      return;
+    }
+
+    // We need the position before the first unevaluated move for context.
+    // Build a contiguous array that includes one extra "before" FEN for the
+    // first unevaluated move if we already have prior evals — this ensures
+    // the pool evaluates the fenBefore of that move too.
+    const evals = await evaluateGameParallel(
+      pool,
+      movesToEval,
+      { depth: 20 },
+      (current, total) => {
+        state.evalProgress = current / total;
+        bus.emit('eval:progress');
+      },
+      state.freeplayBranchPoint >= 0 // skip book detection when branching mid-game
+    );
+
+    // Append new evals to existing ones
+    state.freeplayEvaluations = [...state.freeplayEvaluations, ...evals];
+    state.isEvaluating = false;
+    bus.emit('eval:complete');
+    bus.emit('freeplay:eval-complete');
+  } catch (err) {
+    console.error('Freeplay evaluation failed:', err);
     state.isEvaluating = false;
     bus.emit('eval:complete');
   }

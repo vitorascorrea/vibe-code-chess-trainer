@@ -5,6 +5,7 @@ export function createLayout(): {
   boardWrap: HTMLElement;
   navControls: HTMLElement;
   moveList: HTMLElement;
+  freeplayMoveList: HTMLElement;
 } {
   const app = document.getElementById('app')!;
   app.innerHTML = '';
@@ -24,11 +25,12 @@ export function createLayout(): {
 
   const navControls = el('div', 'nav-controls');
   const moveList = el('div', 'move-list');
+  const freeplayMoveList = el('div', 'freeplay-move-list');
 
-  layout.append(backBtn, gameInfo, boardRow, navControls, moveList);
+  layout.append(backBtn, gameInfo, boardRow, navControls, moveList, freeplayMoveList);
   app.append(layout);
 
-  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList };
+  return { backBtn, gameInfo, evalBar, boardWrap, navControls, moveList, freeplayMoveList };
 }
 
 function el(tag: string, className: string): HTMLElement {

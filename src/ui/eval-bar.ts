@@ -22,6 +22,26 @@ export function initEvalBar(container: HTMLElement): void {
       return;
     }
 
+    // In freeplay, show freeplay evaluation if available
+    if (state.mode === 'freeplay') {
+      const fpIdx = state.currentFreeplayMoveIndex;
+      const fpEv = fpIdx >= 0 ? state.freeplayEvaluations[fpIdx] : null;
+
+      if (fpEv && fpEv.evalAfter) {
+        whiteFill.style.height = `${scoreToPct(fpEv.evalAfter.score)}%`;
+        badgeEl.className = `eval-bar-badge ${fpEv.classification}`;
+        badgeEl.textContent = classificationSymbol(fpEv.classification);
+        badgeEl.style.display = '';
+      } else if (state.freeplayEval) {
+        whiteFill.style.height = `${scoreToPct(state.freeplayEval)}%`;
+        badgeEl.style.display = 'none';
+      } else {
+        whiteFill.style.height = '50%';
+        badgeEl.style.display = 'none';
+      }
+      return;
+    }
+
     const moveIdx = state.currentMoveIndex;
     const ev = state.evaluations[moveIdx];
 
@@ -44,6 +64,9 @@ export function initEvalBar(container: HTMLElement): void {
   bus.on('eval:complete', update);
   bus.on('eval:started', update);
   bus.on('eval:progress', update);
+  bus.on('freeplay:eval', update);
+  bus.on('freeplay:eval-complete', update);
+  bus.on('mode:changed', update);
 }
 
 function classificationSymbol(cls: MoveClassification): string {

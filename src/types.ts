@@ -91,7 +91,10 @@ export type AppEvent =
   | 'eval:started'
   | 'eval:progress'
   | 'eval:complete'
-  | 'store:changed';
+  | 'store:changed'
+  | 'freeplay:eval'
+  | 'freeplay:moved'
+  | 'freeplay:eval-complete';
 
 export interface AppState {
   game: GameData | null;
@@ -103,4 +106,9 @@ export interface AppState {
   evalProgress: number; // 0-1
   boardFlipped: boolean;
   openingName: string | null;
+  freeplayEval: EngineScore | null;
+  freeplayMoves: MoveData[];
+  freeplayEvaluations: MoveEvaluation[];
+  currentFreeplayMoveIndex: number;
+  freeplayAutoEval: boolean;
 }

@@ -75,6 +75,12 @@ html, body {
   color: var(--text-muted);
 }
 
+.game-info .opening-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-height: 18px;
+}
+
 /* ---- Board + Eval Bar Row ---- */
 .board-row {
   display: flex;
@@ -182,6 +188,22 @@ html, body {
 .nav-controls button.active {
   background: var(--accent);
   border-color: var(--accent);
+}
+
+.auto-eval-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.auto-eval-toggle input {
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 
@@ -534,6 +556,92 @@ html, body {
   border-radius: 3px;
   transition: width 0.2s ease;
   width: 0%;
+}
+
+/* ---- Freeplay Move List ---- */
+.freeplay-move-list {
+  background: var(--bg-surface);
+  border-radius: 8px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  font-size: 14px;
+  display: none;
+  gap: 2px;
+  align-items: center;
+  scrollbar-width: thin;
+  border-top: 2px solid var(--accent);
+}
+
+.freeplay-move-list::-webkit-scrollbar {
+  height: 4px;
+}
+
+.freeplay-move-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.freeplay-move-list .move-pair {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.freeplay-move-list .move-number {
+  color: var(--text-muted);
+  padding-right: 2px;
+  font-size: 12px;
+}
+
+.freeplay-move-list .move {
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.freeplay-move-list .move.current {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.freeplay-move-list .move.book       { color: var(--clr-book); }
+.freeplay-move-list .move.brilliant  { color: var(--clr-brilliant); }
+.freeplay-move-list .move.great      { color: var(--clr-great); }
+.freeplay-move-list .move.best       { color: var(--clr-best); }
+.freeplay-move-list .move.excellent  { color: var(--clr-excellent); }
+.freeplay-move-list .move.good       { color: var(--clr-good); }
+.freeplay-move-list .move.inaccuracy { color: var(--clr-inaccuracy); }
+.freeplay-move-list .move.mistake    { color: var(--clr-mistake); }
+.freeplay-move-list .move.blunder    { color: var(--clr-blunder); }
+
+.freeplay-move-list .move.current.book,
+.freeplay-move-list .move.current.brilliant,
+.freeplay-move-list .move.current.great,
+.freeplay-move-list .move.current.best,
+.freeplay-move-list .move.current.excellent,
+.freeplay-move-list .move.current.good,
+.freeplay-move-list .move.current.inaccuracy,
+.freeplay-move-list .move.current.mistake,
+.freeplay-move-list .move.current.blunder {
+  color: #fff;
+}
+
+.freeplay-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-right: 6px;
+  flex-shrink: 0;
 }
 
 /* ---- Utility ---- */

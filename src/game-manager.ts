@@ -10,6 +10,7 @@ export class GameManager {
   private _currentMoveIndex = -1;
   private _mode: AppMode = 'review';
   private _freeplayBranchPoint = -1;
+  private _freeplayMoveCount = 0;
 
   constructor() {
     this.chess = new Chess();
@@ -190,23 +191,45 @@ export class GameManager {
   enterFreeplay(): void {
     this._mode = 'freeplay';
     this._freeplayBranchPoint = this._currentMoveIndex;
+    this._freeplayMoveCount = 0;
     this.freeplayChess = new Chess(this.currentFen);
   }
 
-  freeplayMove(from: string, to: string, promotion?: string): boolean {
-    if (this._mode !== 'freeplay' || !this.freeplayChess) return false;
+  freeplayMove(from: string, to: string, promotion?: string): MoveData | null {
+    if (this._mode !== 'freeplay' || !this.freeplayChess) return null;
     try {
+      const fenBefore = this.freeplayChess.fen();
       const move = this.freeplayChess.move({ from, to, promotion });
-      return !!move;
+      if (!move) return null;
+      const fenAfter = this.freeplayChess.fen();
+      const halfMoveIndex = (this._freeplayBranchPoint + 1) + this._freeplayMoveCount;
+      this._freeplayMoveCount++;
+      return {
+        index: halfMoveIndex,
+        san: move.san,
+        from: move.from,
+        to: move.to,
+        color: move.color as PieceColor,
+        fenBefore,
+        fenAfter,
+      };
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  undoFreeplay(): boolean {
+    if (this._mode !== 'freeplay' || !this.freeplayChess || this._freeplayMoveCount === 0) return false;
+    this.freeplayChess.undo();
+    this._freeplayMoveCount--;
+    return true;
   }
 
   resumePgn(): void {
     this._mode = 'review';
     this._currentMoveIndex = this._freeplayBranchPoint;
     this._freeplayBranchPoint = -1;
+    this._freeplayMoveCount = 0;
     this.freeplayChess = null;
   }
 
