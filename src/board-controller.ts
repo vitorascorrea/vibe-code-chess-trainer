@@ -106,6 +106,11 @@ export class BoardController {
     this.board.disableMoveInput();
   }
 
+  private clearLegalMoveMarkers(): void {
+    this.board?.removeMarkers?.(MARKER_TYPE.dot);
+    this.board?.removeMarkers?.(MARKER_TYPE.bevel);
+  }
+
   private updateInput(): void {
     if (!this.board) return;
     this.board.disableMoveInput();
@@ -115,11 +120,23 @@ export class BoardController {
 
     if (state.mode === 'freeplay') {
       this.board.enableMoveInput((event: { type: string; squareFrom: string; squareTo: string }) => {
+        if (event.type === INPUT_EVENT_TYPE.moveInputStarted) {
+          this.clearLegalMoveMarkers();
+          const legal = this.gm.legalMoves().filter(m => m.from === event.squareFrom);
+          for (const m of legal) {
+            this.board!.addMarker?.(m.captured ? MARKER_TYPE.bevel : MARKER_TYPE.dot, m.to);
+          }
+          return true;
+        }
         if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
           return this.gm.freeplayMove(event.squareFrom, event.squareTo);
         }
         if (event.type === INPUT_EVENT_TYPE.moveInputFinished) {
+          this.clearLegalMoveMarkers();
           bus.emit('position:changed');
+        }
+        if (event.type === INPUT_EVENT_TYPE.moveInputCanceled) {
+          this.clearLegalMoveMarkers();
         }
         return true;
       });
