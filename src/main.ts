@@ -15,6 +15,7 @@ import { initEvalBar } from './ui/eval-bar';
 import { initNavControls } from './ui/nav-controls';
 import { initMoveList } from './ui/move-list';
 import { initEvalOverlay } from './ui/eval-overlay';
+import { registerMcpTools, unregisterMcpTools, setNavigateCallback } from './mcp-tools';
 
 const gm = new GameManager();
 const pool = new EnginePool();
@@ -139,6 +140,7 @@ async function enterApp(afterMount: () => void): Promise<void> {
     state.currentMoveIndex = -1;
     state.mode = 'review';
     state.isEvaluating = false;
+    unregisterMcpTools();
     showStartScreen();
   });
 
@@ -165,6 +167,14 @@ async function enterApp(afterMount: () => void): Promise<void> {
   });
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
+
+  // Register WebMCP tools and set up navigation callback
+  setNavigateCallback((moveIndex: number) => {
+    gm.goToMove(moveIndex);
+    state.currentMoveIndex = gm.currentMoveIndex;
+    bus.emit('position:changed');
+  });
+  registerMcpTools();
 
   await boardCtrl.mount(ui.boardWrap);
   setupKeyboard();
