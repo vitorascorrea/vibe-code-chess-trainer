@@ -32,4 +32,8 @@ export const state: AppState = {
   boardFlipped: false,
   openingName: null,
   freeplayEval: null,
+  freeplayMoves: [],
+  freeplayEvaluations: [],
+  currentFreeplayMoveIndex: -1,
+  freeplayAutoEval: false,
 };

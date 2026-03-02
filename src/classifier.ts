@@ -205,10 +205,10 @@ export async function evaluateGameParallel(
   pool: EnginePool,
   moves: Array<{ fenBefore: string; fenAfter: string; san: string; from: string; to: string; color: PieceColor }>,
   options?: EvaluateOptions,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  skipBookDetection = false
 ): Promise<MoveEvaluation[]> {
-  const sanMoves = moves.map((m) => m.san);
-  const bookDepth = getBookDepth(sanMoves);
+  const bookDepth = skipBookDetection ? 0 : getBookDepth(moves.map((m) => m.san));
 
   // Collect unique FENs that need evaluation
   const fenSet = new Set<string>();

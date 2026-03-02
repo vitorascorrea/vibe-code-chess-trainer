@@ -179,13 +179,17 @@ describe('GameManager', () => {
     it('allows making legal moves in freeplay', () => {
       gm.enterFreeplay();
       const result = gm.freeplayMove('d2', 'd4');
-      expect(result).toBe(true);
+      expect(result).not.toBeNull();
+      expect(result!.san).toBe('d4');
+      expect(result!.from).toBe('d2');
+      expect(result!.to).toBe('d4');
+      expect(result!.color).toBe('w');
     });
 
     it('rejects illegal moves in freeplay', () => {
       gm.enterFreeplay();
       const result = gm.freeplayMove('e2', 'e4'); // pawn already on e4
-      expect(result).toBe(false);
+      expect(result).toBeNull();
     });
 
     it('allows moves for both colors in freeplay', () => {

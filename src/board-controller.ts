@@ -3,10 +3,12 @@ import { Arrows, ARROW_TYPE } from 'cm-chessboard/src/extensions/arrows/Arrows.j
 import { Markers, MARKER_TYPE } from 'cm-chessboard/src/extensions/markers/Markers.js';
 import { bus, state } from './state';
 import type { GameManager } from './game-manager';
+import type { MoveData } from './types';
 
 export class BoardController {
   private board: Chessboard | null = null;
   private gm: GameManager;
+  private pendingFreeplayMove: MoveData | null = null;
 
   constructor(gm: GameManager) {
     this.gm = gm;
@@ -129,10 +131,17 @@ export class BoardController {
           return true;
         }
         if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
-          return this.gm.freeplayMove(event.squareFrom, event.squareTo);
+          this.pendingFreeplayMove = this.gm.freeplayMove(event.squareFrom, event.squareTo);
+          return !!this.pendingFreeplayMove;
         }
         if (event.type === INPUT_EVENT_TYPE.moveInputFinished) {
           this.clearLegalMoveMarkers();
+          if (this.pendingFreeplayMove) {
+            state.freeplayMoves.push(this.pendingFreeplayMove);
+            state.currentFreeplayMoveIndex = state.freeplayMoves.length - 1;
+            this.pendingFreeplayMove = null;
+            bus.emit('freeplay:moved');
+          }
           bus.emit('position:changed');
         }
         if (event.type === INPUT_EVENT_TYPE.moveInputCanceled) {

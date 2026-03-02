@@ -51,7 +51,9 @@ export function initEvalOverlay(): void {
       statusEl!.textContent = 'Loading engine...';
       barFillEl!.style.width = '0%';
     } else {
-      const total = state.game?.moves.length ?? 0;
+      const total = state.mode === 'freeplay'
+        ? state.freeplayMoves.length - state.freeplayEvaluations.length
+        : state.game?.moves.length ?? 0;
       const current = Math.round(state.evalProgress * total);
       statusEl!.textContent = `Evaluating move ${current}/${total}...`;
       barFillEl!.style.width = `${Math.round(state.evalProgress * 100)}%`;
