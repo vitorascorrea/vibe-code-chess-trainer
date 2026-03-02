@@ -16,6 +16,7 @@ import { initNavControls } from './ui/nav-controls';
 import { initMoveList } from './ui/move-list';
 import { initHistoryPanel } from './ui/history-panel';
 import { initEvalOverlay } from './ui/eval-overlay';
+import { registerMcpTools, unregisterMcpTools, setNavigateCallback } from './mcp-tools';
 
 const gm = new GameManager();
 const pool = new EnginePool();
@@ -140,6 +141,7 @@ async function enterApp(afterMount: () => void): Promise<void> {
     state.currentMoveIndex = -1;
     state.mode = 'review';
     state.isEvaluating = false;
+    unregisterMcpTools();
     showStartScreen();
   });
 
@@ -167,6 +169,14 @@ async function enterApp(afterMount: () => void): Promise<void> {
 
   initMoveList(ui.moveList, (idx) => navigate(() => gm.goToMove(idx)));
   initHistoryPanel(ui.panelContent, loadStored);
+
+  // Register WebMCP tools and set up navigation callback
+  setNavigateCallback((moveIndex: number) => {
+    gm.goToMove(moveIndex);
+    state.currentMoveIndex = gm.currentMoveIndex;
+    bus.emit('position:changed');
+  });
+  registerMcpTools();
 
   await boardCtrl.mount(ui.boardWrap);
   setupKeyboard();
@@ -254,6 +264,7 @@ function loadStored(id: string): void {
     loadGameData(stored.pgn);
     state.evaluations = stored.evaluations;
     bus.emit('eval:complete');
+
   } catch (err) {
     console.error('Failed to load stored game:', err);
   }
